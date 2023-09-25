@@ -5,8 +5,9 @@ const processedItemSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  pText: String, 
-  liHtml: String,
+  subheading: String, 
+  body: String,
+  title: String
 });
 
 const ProcessedItem = mongoose.model("ProcessedItem", processedItemSchema);

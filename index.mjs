@@ -2,6 +2,7 @@ import axios from "axios";
 import mongoose from "mongoose";
 import * as cheerio from "cheerio";
 import ProcessedItem from "./processedItem.mjs";
+import sendMail from "./helpers/sendMail.mjs";
 
 mongoose.connect("mongodb://localhost:27017/sec", {
   useNewUrlParser: true,
@@ -38,24 +39,28 @@ async function checkForUpdates(html) {
     if (!existingItem) {
       try {
         const normalizedUrl = normalizeUrl(href);
-        const { pText, liElements } = await extractChangesFromURL(
+        const { title, subheading, changes } = await extractChangesFromURL(
           normalizedUrl
         );
-        if (pText.length !== 0 && liElements.length !== 0) {
-          console.log("Title: " + pText);
-          for (const element of liElements) {
-            console.log($(element).text());
-          }
+        if (subheading.length !== 0 && changes.length !== 0) {
+          console.log("Title: " + title);
+          console.log("Subheading: " + subheading);
+          console.log(changes)
+          // for (const change of changes) {
+          //   console.log($(change).text());
+          // }
           console.log(
             count++,
             "----------------------------------------------------------------------"
           );
           const processedItem = new ProcessedItem({
             url: href,
-            pText: pText,
-            liHtml: $(liElements).text(),
+            subheading,
+            body: changes,
+            title,
           });
           await processedItem.save();
+          await sendMail(title, subheading, changes);
         }
       } catch (err) {
         console.log(err);
@@ -75,17 +80,17 @@ async function extractChangesFromURL(href) {
   try {
     const res = await axios.get(href);
     const $ = cheerio.load(res.data);
+    const title = $(".landing").text();
     const parentElement = $("div.field_left_1_box");
-    const pText = parentElement
+    const subheading = parentElement
       .find('p:contains("will introduce the following changes:")')
       .text();
     const liElements = parentElement.find("ul li");
-    const liHtml = liElements
+    const changes = liElements
       .map((index, element) => $.html(element))
       .get()
       .join("");
-
-    return { pText, liElements };
+    return { title, subheading, changes };
   } catch (err) {
     console.log(err);
   }
